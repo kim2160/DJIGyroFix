@@ -7,6 +7,15 @@ DJI 카메라 원본 MP4/MOV에 포함된 자세(쿼터니언) 메타데이터�
 > 이 프로젝트는 베타 소프트웨어입니다. 중요한 촬영본은 별도로 백업하고 카메라
 > 원본의 복사본으로 먼저 검증하세요.
 
+## Windows 다운로드
+
+- [DJI Gyro Fix v0.91 EXE 받기](https://github.com/kim2160/DJIGyroFix/releases/download/v0.91/DJI_Gyro_Fix.exe)
+- [모든 릴리스와 변경 내용 보기](https://github.com/kim2160/DJIGyroFix/releases)
+
+실행 파일은 아직 코드 서명되지 않아 Windows SmartScreen 경고가 표시될 수
+있습니다. 릴리스 설명의 SHA-256과 다운로드한 파일의 검사값을 비교할 수
+있습니다.
+
 ## 주요 기능
 
 - 인터넷, AI 서비스, Gyroflow 설치 없이 로컬에서 실행
