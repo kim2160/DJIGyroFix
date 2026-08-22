@@ -1,0 +1,30 @@
+name: Build Windows executable
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build dependency
+        run: python -m pip install --disable-pip-version-check -r requirements-build.txt
+      - name: Build executable
+        run: >-
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --version-file packaging/windows_version_info.txt
+          --name DJI_Gyro_Fix --distpath dist --workpath build app.py
+      - name: Include usage guide
+        shell: pwsh
+        run: Copy-Item -LiteralPath "docs/사용방법.txt" -Destination "dist/사용방법.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DJI_Gyro_Fix_v0.91_Windows
+          path: dist/

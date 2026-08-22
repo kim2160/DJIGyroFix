@@ -1,0 +1,37 @@
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.eggs/
+*.egg-info/
+
+# Local environments
+.venv/
+venv/
+
+# Build and release artifacts
+/build*/
+/dist/
+*.spec
+*.partial
+
+# Local videos and generated media
+/sample/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*_gyro_fixed.*
+
+# Reference source used during development; not required at runtime
+/vendor/
+
+# Editors and operating systems
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

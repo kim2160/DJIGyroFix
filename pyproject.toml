@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dji-gyro-fix"
+version = "0.91"
+description = "Offline repair of selected DJI quaternion metadata intervals without video re-encoding"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Video",
+]
+
+[project.gui-scripts]
+dji-gyro-fix = "gyrofix.ui:main"
+
+[project.scripts]
+dji-gyro-fix-cli = "gyrofix.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gyrofix*"]
