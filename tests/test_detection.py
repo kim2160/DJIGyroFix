@@ -77,6 +77,12 @@ class DetectionTests(unittest.TestCase):
         self.assertIn("강도", description)
         self.assertIn("영향 축", description)
 
+        english = describe_detection(result, language="en")
+        self.assertIn("Detected 1 jitter event", english)
+        self.assertIn("Peak", english)
+        self.assertIn("Severity", english)
+        self.assertIn("Axis", english)
+
     def test_overlapping_processing_intervals_are_merged(self) -> None:
         self.assertEqual(
             _merge_intervals([(3.0, 4.0), (1.0, 2.0), (1.5, 2.5)]),

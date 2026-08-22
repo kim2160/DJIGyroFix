@@ -24,6 +24,11 @@ jobs:
       - name: Include usage guide
         shell: pwsh
         run: Copy-Item -LiteralPath "docs/사용방법.txt" -Destination "dist/사용방법.txt"
+      - name: Write SHA-256 checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -LiteralPath "dist/DJI_Gyro_Fix.exe" -Algorithm SHA256).Hash
+          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  DJI_Gyro_Fix.exe" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: DJI_Gyro_Fix_v0.91_Windows

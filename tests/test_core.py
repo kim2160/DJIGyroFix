@@ -52,6 +52,15 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_time_rows([("", "")])
 
+    def test_time_validation_can_report_in_english(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Minutes and seconds"):
+            parse_time("1:60", language="en")
+        with self.assertRaisesRegex(ValueError, "Range 2"):
+            parse_time_rows(
+                [("22", "24"), ("25", "")],
+                language="en",
+            )
+
     def test_interval_merge_rejects_non_finite_values(self) -> None:
         for interval in ((0.0, math.inf), (math.nan, 1.0)):
             with self.subTest(interval=interval), self.assertRaises(ValueError):

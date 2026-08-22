@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from .i18n import Language, text
 from .processor import parse_time
 
 
 def parse_time_rows(
     rows: Sequence[tuple[str, str]],
+    *,
+    language: Language = "ko",
 ) -> list[tuple[int, float, float]]:
     """Return populated rows as ``(row_number, start, end)`` tuples.
 
@@ -23,22 +26,18 @@ def parse_time_rows(
         if not start_text and not end_text:
             continue
         if not start_text or not end_text:
-            raise ValueError(
-                f"{row_number}번 구간은 시작 시간과 종료 시간을 모두 입력하거나 모두 비워 주세요."
-            )
+            raise ValueError(text(language, "row_both_or_blank", row=row_number))
         try:
-            start = parse_time(start_text)
-            end = parse_time(end_text)
+            start = parse_time(start_text, language=language)
+            end = parse_time(end_text, language=language)
         except ValueError as error:
             raise ValueError(
-                f"{row_number}번 구간의 시작 시간과 종료 시간을 확인해 주세요.\n{error}"
+                text(language, "row_check", row=row_number, error=error)
             ) from error
         if end <= start:
-            raise ValueError(
-                f"{row_number}번 구간의 종료 시간은 시작 시간보다 뒤여야 합니다."
-            )
+            raise ValueError(text(language, "row_end_after", row=row_number))
         intervals.append((row_number, start, end))
 
     if not intervals:
-        raise ValueError("처리할 시작 시간과 종료 시간을 한 구간 이상 입력해 주세요.")
+        raise ValueError(text(language, "one_range_required"))
     return intervals

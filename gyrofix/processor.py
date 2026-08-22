@@ -9,6 +9,7 @@ import tempfile
 import threading
 from typing import Callable, Sequence
 
+from .i18n import Language, text
 from .mp4 import Track, find_dji_metadata_track, parse_tracks
 from .protobuf import (
     QuaternionRef,
@@ -57,29 +58,31 @@ def default_output_path(source: os.PathLike[str] | str) -> Path:
     return path.with_name(f"{path.stem}_gyro_fixed{path.suffix}")
 
 
-def parse_time(value: str | float | int) -> float:
+def parse_time(value: str | float | int, *, language: Language = "ko") -> float:
     if isinstance(value, (int, float)):
         seconds = float(value)
     else:
-        text = value.strip().replace(",", ".")
-        if not text:
-            raise ValueError("시간을 입력해 주세요.")
-        parts = text.split(":")
+        time_text = value.strip().replace(",", ".")
+        if not time_text:
+            raise ValueError(text(language, "time_required"))
+        parts = time_text.split(":")
         if len(parts) > 3:
-            raise ValueError(f"올바르지 않은 시간 형식: {value}")
+            raise ValueError(text(language, "invalid_time_format", value=value))
         try:
             numbers = [float(part) for part in parts]
         except ValueError as error:
-            raise ValueError(f"올바르지 않은 시간 형식: {value}") from error
+            raise ValueError(
+                text(language, "invalid_time_format", value=value)
+            ) from error
         if any(not math.isfinite(number) or number < 0.0 for number in numbers):
-            raise ValueError("시간은 유한한 0 이상의 값이어야 합니다.")
+            raise ValueError(text(language, "time_nonnegative"))
         if len(numbers) > 1 and any(number >= 60.0 for number in numbers[1:]):
-            raise ValueError(f"분과 초는 60보다 작아야 합니다: {value}")
+            raise ValueError(text(language, "clock_component", value=value))
         seconds = 0.0
         for number in numbers:
             seconds = seconds * 60.0 + number
     if not math.isfinite(seconds) or seconds < 0.0:
-        raise ValueError("시간은 유한한 0 이상의 값이어야 합니다.")
+        raise ValueError(text(language, "time_nonnegative"))
     return seconds
 
 

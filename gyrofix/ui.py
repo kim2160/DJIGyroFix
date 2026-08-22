@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from . import __version__
 from .detection import DetectionResult, describe_detection, detect_video_jitter
+from .i18n import Language, text, translate_error, translate_stage
 from .intervals import parse_time_rows
 from .processor import (
     ProcessingCancelled,
@@ -18,12 +19,13 @@ from .processor import (
 )
 
 
-SMOOTHING_PRESETS = {
-    "강하게 (권장)": 180.0,
-    "보통": 100.0,
-    "약하게": 50.0,
-    "매우 강하게": 300.0,
+SMOOTHING_PRESETS: dict[str, float] = {
+    "strong": 180.0,
+    "medium": 100.0,
+    "light": 50.0,
+    "very_strong": 300.0,
 }
+PRESET_KEYS = tuple(SMOOTHING_PRESETS)
 
 
 class GyroFixApp(tk.Tk):
@@ -34,10 +36,20 @@ class GyroFixApp(tk.Tk):
         self.resizable(False, False)
         self.configure(bg="#11151c")
 
+        self.language: Language = "ko"
+        self._text_vars: dict[str, tk.StringVar] = {}
+        self._preset_key = "strong"
+        self._status_key: str | None = "initial_status"
+        self._status_values: dict[str, object] = {}
+        self._progress_stage: str | None = None
+        self._result_key: str | None = "result_prompt"
+        self._result_values: dict[str, object] = {}
+        self._output_is_default = True
+
         self.source_var = tk.StringVar()
-        self.output_var = tk.StringVar(value="파일을 선택하면 자동으로 정해집니다.")
-        self.preset_var = tk.StringVar(value="강하게 (권장)")
-        self.status_var = tk.StringVar(value="DJI 원본 영상을 선택해 주세요.")
+        self.output_var = tk.StringVar()
+        self.preset_var = tk.StringVar()
+        self.status_var = tk.StringVar()
         self.progress_var = tk.DoubleVar(value=0.0)
 
         self._events: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -49,9 +61,84 @@ class GyroFixApp(tk.Tk):
 
         self._configure_style()
         self._build_ui()
+        self._apply_language()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.source_var.trace_add("write", self._input_changed)
         self.after(100, self._poll_events)
+
+    def _t(self, key: str, **values: object) -> str:
+        return text(self.language, key, **values)
+
+    def _tv(self, key: str) -> tk.StringVar:
+        variable = self._text_vars.get(key)
+        if variable is None:
+            variable = tk.StringVar()
+            self._text_vars[key] = variable
+        return variable
+
+    def _set_status(self, key: str, **values: object) -> None:
+        self._status_key = key
+        self._status_values = values
+        self._progress_stage = None
+        self.status_var.set(self._t(key, **values))
+
+    def _set_progress_status(self, stage: str) -> None:
+        self._status_key = None
+        self._status_values = {}
+        self._progress_stage = stage
+        self.status_var.set(translate_stage(self.language, stage))
+
+    def _set_result_message(self, key: str, **values: object) -> None:
+        self._result_key = key
+        self._result_values = values
+        self._set_result_text(self._t(key, **values))
+
+    def _selected_preset_key(self) -> str:
+        selected = self.preset_var.get()
+        for key in PRESET_KEYS:
+            if selected == self._t(f"preset_{key}"):
+                return key
+        return self._preset_key
+
+    def _apply_language(self) -> None:
+        self.title(self._t("app_title", version=__version__))
+        for key, variable in self._text_vars.items():
+            if key == "app_title":
+                variable.set(self._t(key, version=__version__))
+            else:
+                variable.set(self._t(key))
+
+        preset_values = [self._t(f"preset_{key}") for key in PRESET_KEYS]
+        self.preset_combo.configure(values=preset_values)
+        self.preset_var.set(self._t(f"preset_{self._preset_key}"))
+
+        if self._output_is_default:
+            self.output_var.set(self._t("output_auto"))
+        if self._status_key is not None:
+            self.status_var.set(self._t(self._status_key, **self._status_values))
+        elif self._progress_stage is not None:
+            self.status_var.set(translate_stage(self.language, self._progress_stage))
+
+        if self._last_detection is not None:
+            self._render_detection_results()
+        elif self._result_key is not None:
+            self._set_result_text(self._t(self._result_key, **self._result_values))
+        self._update_language_buttons()
+
+    def _set_language(self, language: Language) -> None:
+        if language == self.language:
+            return
+        self._preset_key = self._selected_preset_key()
+        self.language = language
+        self._apply_language()
+
+    def _update_language_buttons(self) -> None:
+        self.korean_button.configure(
+            style="LanguageActive.TButton" if self.language == "ko" else "LanguageInactive.TButton"
+        )
+        self.english_button.configure(
+            style="LanguageActive.TButton" if self.language == "en" else "LanguageInactive.TButton"
+        )
 
     def _configure_style(self) -> None:
         self.option_add("*TCombobox*Listbox.background", "#ffffff")
@@ -85,6 +172,36 @@ class GyroFixApp(tk.Tk):
         style.map("Detect.TButton", background=[("active", "#414c5c"), ("disabled", "#282f39")])
         style.configure("Range.TButton", background="#29313d", foreground="#f2f5f9", font=("Malgun Gothic", 11, "bold"), padding=(4, 5))
         style.map("Range.TButton", background=[("active", "#3a4656"), ("disabled", "#242a33")])
+        style.configure(
+            "LanguageInactive.TButton",
+            background="#1c2530",
+            foreground="#c5cfdb",
+            bordercolor="#344252",
+            lightcolor="#344252",
+            darkcolor="#344252",
+            font=("Malgun Gothic", 9, "bold"),
+            padding=(7, 5),
+        )
+        style.map(
+            "LanguageInactive.TButton",
+            background=[("active", "#293746")],
+            foreground=[("active", "#ffffff")],
+        )
+        style.configure(
+            "LanguageActive.TButton",
+            background="#17536c",
+            foreground="#f5fbff",
+            bordercolor="#236c88",
+            lightcolor="#236c88",
+            darkcolor="#236c88",
+            font=("Malgun Gothic", 9, "bold"),
+            padding=(7, 5),
+        )
+        style.map(
+            "LanguageActive.TButton",
+            background=[("active", "#1d6683")],
+            foreground=[("active", "#ffffff")],
+        )
         style.configure("TEntry", fieldbackground="#11161e", foreground="#f4f6fa", insertcolor="#ffffff", bordercolor="#3a4352", lightcolor="#3a4352", darkcolor="#3a4352", padding=9)
         style.configure(
             "TCombobox",
@@ -110,23 +227,59 @@ class GyroFixApp(tk.Tk):
         root = ttk.Frame(self, padding=(24, 20))
         root.pack(fill="both", expand=True)
 
-        ttk.Label(root, text=f"DJI Gyro Fix v{__version__}", style="Title.TLabel").pack(anchor="w")
+        title_row = ttk.Frame(root)
+        title_row.pack(fill="x")
+        ttk.Label(
+            title_row,
+            textvariable=self._tv("app_title"),
+            style="Title.TLabel",
+        ).pack(side="left", anchor="w")
+        language_group = ttk.Frame(title_row)
+        language_group.pack(side="left", anchor="w", padx=(12, 0), pady=(2, 0))
+        self.korean_button = ttk.Button(
+            language_group,
+            text="KOR",
+            style="LanguageActive.TButton",
+            command=lambda: self._set_language("ko"),
+            width=5,
+        )
+        self.korean_button.pack(side="left")
+        self.english_button = ttk.Button(
+            language_group,
+            text="ENG",
+            style="LanguageInactive.TButton",
+            command=lambda: self._set_language("en"),
+            width=5,
+        )
+        self.english_button.pack(side="left", padx=(4, 0))
         ttk.Label(
             root,
-            text="지정한 시간의 자이로 데이터만 부드럽게 수정합니다. 영상과 음성은 재인코딩하지 않습니다.",
+            textvariable=self._tv("subtitle"),
             style="Hint.TLabel",
         ).pack(anchor="w", pady=(3, 16))
 
         file_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
         file_card.pack(fill="x")
         file_card.columnconfigure(0, weight=1)
-        ttk.Label(file_card, text="파일", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            file_card,
+            textvariable=self._tv("file_section"),
+            style="Section.TLabel",
+        ).grid(row=0, column=0, sticky="w")
         file_row = ttk.Frame(file_card, style="Card.TFrame")
         file_row.grid(row=1, column=0, sticky="ew", pady=(10, 10))
         file_row.columnconfigure(0, weight=1)
         ttk.Entry(file_row, textvariable=self.source_var).grid(row=0, column=0, sticky="ew")
-        ttk.Button(file_row, text="파일 선택", command=self._choose_file).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(file_card, text="저장 위치", style="Field.TLabel").grid(row=2, column=0, sticky="w")
+        ttk.Button(
+            file_row,
+            textvariable=self._tv("file_select"),
+            command=self._choose_file,
+        ).grid(row=0, column=1, padx=(8, 0))
+        ttk.Label(
+            file_card,
+            textvariable=self._tv("save_location"),
+            style="Field.TLabel",
+        ).grid(row=2, column=0, sticky="w")
         ttk.Label(
             file_card,
             textvariable=self.output_var,
@@ -141,26 +294,26 @@ class GyroFixApp(tk.Tk):
         settings_row = ttk.Frame(range_card, style="Card.TFrame")
         settings_row.grid(row=0, column=0, sticky="ew")
         settings_row.columnconfigure(0, weight=1)
-        ttk.Label(settings_row, text="시간 구간", style="Section.TLabel").grid(
+        ttk.Label(settings_row, textvariable=self._tv("time_ranges"), style="Section.TLabel").grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Label(settings_row, text="최대 10개", style="CardHint.TLabel").grid(
+        ttk.Label(settings_row, textvariable=self._tv("max_ranges"), style="CardHint.TLabel").grid(
             row=0, column=1, sticky="e", padx=(8, 18)
         )
-        ttk.Label(settings_row, text="스무딩", style="Field.TLabel").grid(
+        ttk.Label(settings_row, textvariable=self._tv("smoothing"), style="Field.TLabel").grid(
             row=0, column=2, sticky="e", padx=(0, 8)
         )
-        ttk.Combobox(
+        self.preset_combo = ttk.Combobox(
             settings_row,
             textvariable=self.preset_var,
-            values=list(SMOOTHING_PRESETS),
             state="readonly",
             width=17,
-        ).grid(row=0, column=3, sticky="e")
+        )
+        self.preset_combo.grid(row=0, column=3, sticky="e")
 
         ttk.Label(
             range_card,
-            text="시간 형식: 22.5 또는 00:00:22.500  ·  완전히 빈 행은 자동으로 건너뜁니다.",
+            textvariable=self._tv("time_hint"),
             style="CardHint.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(7, 12))
 
@@ -168,10 +321,10 @@ class GyroFixApp(tk.Tk):
         range_header.grid(row=2, column=0, sticky="ew", pady=(0, 6), padx=(0, 17))
         range_header.columnconfigure(1, weight=1)
         range_header.columnconfigure(2, weight=1)
-        ttk.Label(range_header, text="번호", width=5, style="Field.TLabel").grid(row=0, column=0)
-        ttk.Label(range_header, text="시작 시간(초)", style="Field.TLabel").grid(row=0, column=1, sticky="w")
-        ttk.Label(range_header, text="종료 시간(초)", style="Field.TLabel").grid(row=0, column=2, sticky="w", padx=(8, 0))
-        ttk.Label(range_header, text="관리", width=8, style="Field.TLabel").grid(row=0, column=3, columnspan=2)
+        ttk.Label(range_header, textvariable=self._tv("number"), width=5, style="Field.TLabel").grid(row=0, column=0)
+        ttk.Label(range_header, textvariable=self._tv("start_time"), style="Field.TLabel").grid(row=0, column=1, sticky="w")
+        ttk.Label(range_header, textvariable=self._tv("end_time"), style="Field.TLabel").grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Label(range_header, textvariable=self._tv("manage"), width=8, style="Field.TLabel").grid(row=0, column=3, columnspan=2)
 
         range_area = ttk.Frame(range_card, style="Card.TFrame")
         range_area.grid(row=3, column=0, sticky="ew")
@@ -201,21 +354,21 @@ class GyroFixApp(tk.Tk):
         action_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
         action_card.pack(fill="x", pady=(12, 0))
         action_card.columnconfigure(0, weight=1)
-        ttk.Label(action_card, text="실행", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(action_card, textvariable=self._tv("run"), style="Section.TLabel").grid(row=0, column=0, sticky="w")
 
         action_row = ttk.Frame(action_card, style="Card.TFrame")
         action_row.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         action_row.columnconfigure((0, 1), weight=1)
         self.detect_button = ttk.Button(
             action_row,
-            text="검출",
+            textvariable=self._tv("detect"),
             style="Detect.TButton",
             command=self._detect,
         )
         self.detect_button.grid(row=0, column=0, sticky="ew")
         self.process_button = ttk.Button(
             action_row,
-            text="FIX",
+            textvariable=self._tv("fix"),
             style="Accent.TButton",
             command=self._start,
         )
@@ -232,7 +385,11 @@ class GyroFixApp(tk.Tk):
 
         result_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
         result_card.pack(fill="both", expand=True, pady=(12, 0))
-        ttk.Label(result_card, text="검출 결과", style="Section.TLabel").pack(anchor="w")
+        ttk.Label(
+            result_card,
+            textvariable=self._tv("detection_results"),
+            style="Section.TLabel",
+        ).pack(anchor="w")
         result_body = ttk.Frame(result_card, style="Card.TFrame")
         result_body.pack(fill="both", expand=True, pady=(10, 0))
         result_body.columnconfigure(0, weight=1)
@@ -255,7 +412,6 @@ class GyroFixApp(tk.Tk):
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
         self.result_text.grid(row=0, column=0, sticky="nsew")
         result_scrollbar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
-        self._set_result_text("시간 범위를 입력하고 ‘검출’을 누르세요.")
 
     def _new_time_range(self) -> tuple[tk.StringVar, tk.StringVar]:
         start_var = tk.StringVar(value="")
@@ -328,7 +484,7 @@ class GyroFixApp(tk.Tk):
         self.time_ranges.append(self._new_time_range())
         self._render_time_ranges()
         self._input_changed()
-        self.status_var.set(f"처리 시간 구간 {len(self.time_ranges)}개 · 최대 10개까지 추가할 수 있습니다.")
+        self._set_status("range_added", count=len(self.time_ranges))
         self.after_idle(lambda: self.time_canvas.yview_moveto(1.0))
 
     def _remove_time_range(self, index: int) -> None:
@@ -337,7 +493,7 @@ class GyroFixApp(tk.Tk):
         del self.time_ranges[index]
         self._render_time_ranges()
         self._input_changed()
-        self.status_var.set(f"처리 시간 구간 {len(self.time_ranges)}개")
+        self._set_status("range_count", count=len(self.time_ranges))
 
     def _set_result_text(self, text: str) -> None:
         self.result_text.configure(state="normal")
@@ -349,26 +505,31 @@ class GyroFixApp(tk.Tk):
         if self._last_detection is None:
             return
         self._last_detection = None
-        self._set_result_text("입력 범위가 변경됐습니다. 필요하면 다시 ‘검출’을 눌러 주세요.")
+        self._set_result_message("inputs_changed")
 
     def _read_inputs(self) -> tuple[Path, list[tuple[int, float, float]]]:
         source = Path(self.source_var.get().strip())
         if not source.is_file():
-            raise ValueError("DJI 원본 영상 파일을 선택해 주세요.")
+            raise ValueError(self._t("source_required"))
         intervals = parse_time_rows(
-            [(start_var.get(), end_var.get()) for start_var, end_var in self.time_ranges]
+            [(start_var.get(), end_var.get()) for start_var, end_var in self.time_ranges],
+            language=self.language,
         )
         return source, intervals
 
     def _choose_file(self) -> None:
         selected = filedialog.askopenfilename(
-            title="DJI 원본 영상 선택",
-            filetypes=[("MP4/MOV 영상", "*.mp4 *.MP4 *.mov *.MOV"), ("모든 파일", "*.*")],
+            title=self._t("file_dialog_title"),
+            filetypes=[
+                (self._t("file_dialog_video"), "*.mp4 *.MP4 *.mov *.MOV"),
+                (self._t("file_dialog_all"), "*.*"),
+            ],
         )
         if selected:
             self.source_var.set(selected)
+            self._output_is_default = False
             self.output_var.set(str(default_output_path(selected)))
-            self.status_var.set("시간 구간을 정한 뒤 ‘검출’로 확인하거나 바로 ‘FIX’를 누르세요.")
+            self._set_status("file_selected_status")
 
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
@@ -383,8 +544,8 @@ class GyroFixApp(tk.Tk):
     def _on_close(self) -> None:
         if self._busy:
             messagebox.showwarning(
-                "작업 진행 중",
-                "파일을 안전하게 저장하는 중입니다. 작업이 끝난 뒤 창을 닫아 주세요.",
+                self._t("busy_title"),
+                self._t("busy_message"),
             )
             return
         self.destroy()
@@ -393,12 +554,13 @@ class GyroFixApp(tk.Tk):
         try:
             source, intervals = self._read_inputs()
         except ValueError as error:
-            messagebox.showerror("입력 확인", str(error))
+            messagebox.showerror(self._t("input_error_title"), str(error))
             return
 
         self.progress_var.set(0)
-        self.status_var.set(f"선택한 {len(intervals)}개 구간의 자이로 데이터를 확인하는 중…")
-        self._set_result_text("검출 중입니다…")
+        self._last_detection = None
+        self._set_status("detecting_ranges", count=len(intervals))
+        self._set_result_message("detecting")
         self._set_busy(True)
         self._cancel_event = threading.Event()
 
@@ -439,27 +601,32 @@ class GyroFixApp(tk.Tk):
             source, entered_intervals = self._read_inputs()
             intervals = [(start, end) for _row_number, start, end in entered_intervals]
             output = default_output_path(source)
-            smoothing_ms = SMOOTHING_PRESETS[self.preset_var.get()]
+            self._preset_key = self._selected_preset_key()
+            smoothing_ms = SMOOTHING_PRESETS[self._preset_key]
         except (ValueError, KeyError) as error:
-            messagebox.showerror("입력 확인", str(error))
+            messagebox.showerror(self._t("input_error_title"), str(error))
             return
 
         try:
             overwrite = False
             if output.exists():
                 overwrite = messagebox.askyesno(
-                    "파일 덮어쓰기",
-                    f"수정본이 이미 있습니다. 덮어쓸까요?\n\n{output}",
+                    self._t("overwrite_title"),
+                    self._t("overwrite_message", output=output),
                 )
                 if not overwrite:
                     return
         except OSError as error:
-            messagebox.showerror("입력 확인", str(error))
+            messagebox.showerror(
+                self._t("input_error_title"),
+                translate_error(self.language, str(error)),
+            )
             return
 
+        self._output_is_default = False
         self.output_var.set(str(output))
         self.progress_var.set(0)
-        self.status_var.set("파일을 확인하는 중…")
+        self._set_status("checking_file")
         self._set_busy(True)
         self._cancel_event = threading.Event()
 
@@ -486,13 +653,35 @@ class GyroFixApp(tk.Tk):
         self._worker = threading.Thread(target=run, name="gyro-fix-worker", daemon=True)
         self._worker.start()
 
+    def _render_detection_results(self) -> None:
+        if self._last_detection is None:
+            return
+        descriptions = []
+        for row_number, result in self._last_detection:
+            descriptions.append(
+                "\n".join(
+                    [
+                        self._t(
+                            "range_result_header",
+                            row=row_number,
+                            start=result.start_seconds,
+                            end=result.end_seconds,
+                        ),
+                        describe_detection(result, language=self.language),
+                    ]
+                )
+            )
+        self._result_key = None
+        self._result_values = {}
+        self._set_result_text("\n\n".join(descriptions))
+
     def _poll_events(self) -> None:
         try:
             while True:
                 event, payload = self._events.get_nowait()
                 if event == "progress":
                     stage, amount = payload  # type: ignore[misc]
-                    self.status_var.set(str(stage))
+                    self._set_progress_status(str(stage))
                     self.progress_var.set(float(amount) * 100.0)
                 elif event == "detection_done":
                     results = payload
@@ -505,56 +694,61 @@ class GyroFixApp(tk.Tk):
                     )
                     if not valid_results:
                         self._finish_worker()
-                        self.status_var.set("검출 결과를 읽지 못했습니다.")
-                        messagebox.showerror("처리 오류", "올바르지 않은 검출 결과를 받았습니다.")
+                        self._set_status("invalid_detection_status")
+                        messagebox.showerror(
+                            self._t("processing_error_title"),
+                            self._t("invalid_detection_message"),
+                        )
                         continue
                     self._last_detection = results
                     self._finish_worker()
                     self.progress_var.set(100)
-                    descriptions = []
-                    for row_number, result in results:
-                        descriptions.append(
-                            f"[{row_number}번 입력 구간 · "
-                            f"{result.start_seconds:.3f}~{result.end_seconds:.3f}초]\n"
-                            f"{describe_detection(result)}"
-                        )
-                    self._set_result_text("\n\n".join(descriptions))
+                    self._render_detection_results()
                     event_count = sum(len(result.events) for _row_number, result in results)
                     if event_count:
-                        self.status_var.set(
-                            f"검출 완료 · 입력 구간 {len(results)}개 · 이상 흔들림 {event_count}개 · "
-                            "FIX는 입력한 모든 시간 구간을 수정합니다."
+                        self._set_status(
+                            "detect_complete_events",
+                            ranges=len(results),
+                            events=event_count,
                         )
                     else:
-                        self.status_var.set(
-                            f"검출 완료 · 입력 구간 {len(results)}개 · 기준을 넘는 이상 흔들림이 없습니다. "
-                            "FIX는 입력한 모든 시간 구간에 적용할 수 있습니다."
+                        self._set_status(
+                            "detect_complete_none",
+                            ranges=len(results),
                         )
                 elif event == "done":
                     result = payload
                     if not isinstance(result, ProcessingResult):
                         self._finish_worker()
-                        self.status_var.set("저장 결과를 읽지 못했습니다.")
-                        messagebox.showerror("처리 오류", "올바르지 않은 저장 결과를 받았습니다.")
+                        self._set_status("invalid_save_status")
+                        messagebox.showerror(
+                            self._t("processing_error_title"),
+                            self._t("invalid_save_message"),
+                        )
                         continue
                     self._finish_worker()
                     self.progress_var.set(100)
-                    self.status_var.set(
-                        f"완료 · 구간 {result.interval_count}개 · 자세 샘플 {result.quaternions_changed:,}개 수정 · "
-                        f"고주파 변화 {result.improvement_percent:.1f}% 감소"
+                    self._set_status(
+                        "done_status",
+                        ranges=result.interval_count,
+                        samples=result.quaternions_changed,
+                        improvement=result.improvement_percent,
                     )
                     messagebox.showinfo(
-                        "저장 완료",
-                        f"원본은 그대로 두고 수정본을 저장했습니다.\n\n{result.output_path}",
+                        self._t("save_done_title"),
+                        self._t("save_done_message", output=result.output_path),
                     )
                 elif event == "cancelled":
                     self._finish_worker()
                     self.progress_var.set(0)
-                    self.status_var.set("작업이 취소됐습니다. 원본은 변경되지 않았습니다.")
+                    self._set_status("cancelled_status")
                 elif event == "error":
                     self._finish_worker()
-                    self.status_var.set("처리하지 못했습니다. 원본은 변경되지 않았습니다.")
-                    messagebox.showerror("처리 오류", str(payload))
+                    self._set_status("error_status")
+                    messagebox.showerror(
+                        self._t("processing_error_title"),
+                        translate_error(self.language, str(payload)),
+                    )
         except queue.Empty:
             pass
         self.after(100, self._poll_events)

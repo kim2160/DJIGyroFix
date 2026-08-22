@@ -32,5 +32,8 @@ if errorlevel 1 (
 if errorlevel 1 exit /b 1
 
 copy /Y "docs\사용방법.txt" "dist\사용방법.txt" >nul
+"%APP_PYTHON%" -c "from pathlib import Path; import hashlib; p = Path(r'dist\DJI_Gyro_Fix.exe'); h = hashlib.file_digest(p.open('rb'), 'sha256').hexdigest().upper(); Path(r'dist\SHA256SUMS.txt').write_text(h + '  DJI_Gyro_Fix.exe\n', encoding='ascii')"
+if errorlevel 1 exit /b 1
+
 echo Built: %CD%\dist\DJI_Gyro_Fix.exe
 endlocal

@@ -7,6 +7,7 @@ import statistics
 import threading
 from typing import Callable, Sequence
 
+from .i18n import Language, text
 from .processor import ProcessingCancelled, inspect_video
 from .protobuf import quaternion_refs
 from .smoothing import dot, inverse, multiply, normalize
@@ -54,28 +55,66 @@ def format_timestamp(seconds: float, milliseconds: bool = True) -> str:
     return f"{hours:02d}:{minutes:02d}:{int(remaining):02d}"
 
 
-def describe_detection(result: DetectionResult) -> str:
+def describe_detection(result: DetectionResult, *, language: Language = "ko") -> str:
     range_text = f"{format_timestamp(result.start_seconds)} ~ {format_timestamp(result.end_seconds)}"
     if not result.events:
-        return (
-            f"검출 범위  {range_text}\n"
-            "기준을 넘는 고주파 자세 떨림이 검출되지 않았습니다."
+        return "\n".join(
+            [
+                text(language, "detection_range", range=range_text),
+                text(language, "no_jitter_found"),
+            ]
         )
     lines = [
-        f"검출 범위  {range_text}",
-        f"이상 흔들림 {len(result.events)}개가 검출되었습니다.",
+        text(language, "detection_range", range=range_text),
+        text(language, "jitter_events_found", count=len(result.events)),
     ]
     for index, event in enumerate(result.events, start=1):
-        axes = "/".join(event.dominant_axes) if event.dominant_axes else "복합"
+        axes = (
+            "/".join(event.dominant_axes)
+            if event.dominant_axes
+            else text(language, "mixed_axes")
+        )
+        severity_key = {
+            "약함": "severity_low",
+            "중간": "severity_medium",
+            "강함": "severity_high",
+        }.get(event.severity_label)
+        event_type_key = {
+            "순간 자세 충격": "event_impact",
+            "고주파 자세 떨림": "event_jitter",
+        }.get(event.event_type)
+        severity = (
+            text(language, severity_key) if severity_key else event.severity_label
+        )
+        event_type = (
+            text(language, event_type_key) if event_type_key else event.event_type
+        )
         lines.extend(
             [
                 "",
-                f"{index}. {format_timestamp(event.start_seconds)} ~ {format_timestamp(event.end_seconds)} "
-                f"({event.duration_seconds:.3f}초)",
-                f"   최대 지점 {format_timestamp(event.peak_seconds)} · "
-                f"강도 {event.severity_score:.1f}/10 ({event.severity_label})",
-                f"   {event.event_type} · 영향 축 {axes} · "
-                f"평상시 대비 {event.baseline_ratio:.1f}배 · 급변 지점 {event.spike_count}개",
+                text(
+                    language,
+                    "event_range",
+                    index=index,
+                    start=format_timestamp(event.start_seconds),
+                    end=format_timestamp(event.end_seconds),
+                    duration=event.duration_seconds,
+                ),
+                text(
+                    language,
+                    "event_peak",
+                    peak=format_timestamp(event.peak_seconds),
+                    score=event.severity_score,
+                    severity=severity,
+                ),
+                text(
+                    language,
+                    "event_detail",
+                    event_type=event_type,
+                    axes=axes,
+                    ratio=event.baseline_ratio,
+                    spikes=event.spike_count,
+                ),
             ]
         )
     return "\n".join(lines)
