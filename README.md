@@ -142,7 +142,7 @@ packaging/           Windows 실행 파일 버전 정보
 
 ## 라이선스
 
-Copyright (C) 2026 kim2160
+Copyright (C) 2026 dronefriends.kr
 
 이 프로젝트는 [GNU General Public License v3.0 only](LICENSE)에 따라 배포됩니다.
 프로그램을 수정하여 배포할 경우 해당 수정본도 GPL v3.0으로 배포하고 대응하는
