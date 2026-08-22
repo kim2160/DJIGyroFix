@@ -139,3 +139,11 @@ packaging/           Windows 실행 파일 버전 정보
 
 기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md), 참고한 외부 프로젝트 정보는
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 확인하세요.
+
+## 라이선스
+
+Copyright (C) 2026 kim2160
+
+이 프로젝트는 [GNU General Public License v3.0 only](LICENSE)에 따라 배포됩니다.
+프로그램을 수정하여 배포할 경우 해당 수정본도 GPL v3.0으로 배포하고 대응하는
+소스 코드를 함께 제공해야 합니다. 자세한 조건은 `LICENSE`를 확인하세요.
