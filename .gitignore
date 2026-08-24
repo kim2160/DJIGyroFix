@@ -18,6 +18,13 @@ venv/
 /build*/
 /dist/
 /dist-macos*/
+*.app/
+*.dmg
+*.exe
+*.msi
+*.pkg
+*.zip
+SHA256SUMS.txt
 *.spec
 !packaging/macos/DJI_Gyro_Fix.spec
 *.partial
