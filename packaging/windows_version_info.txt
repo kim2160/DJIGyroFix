@@ -16,11 +16,11 @@ VSVersionInfo(
                     "041204B0",
                     [
                         StringStruct("FileDescription", "DJI Gyro Fix"),
-                        StringStruct("FileVersion", "0.91"),
+                        StringStruct("FileVersion", "0.92"),
                         StringStruct("InternalName", "DJI_Gyro_Fix"),
                         StringStruct("OriginalFilename", "DJI_Gyro_Fix.exe"),
                         StringStruct("ProductName", "DJI Gyro Fix"),
-                        StringStruct("ProductVersion", "0.91"),
+                        StringStruct("ProductVersion", "0.92"),
                     ],
                 )
             ]

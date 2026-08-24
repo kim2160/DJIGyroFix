@@ -11,12 +11,15 @@ htmlcov/
 
 # Local environments
 .venv/
+/.venv-macos/
 venv/
 
 # Build and release artifacts
 /build*/
 /dist/
+/dist-macos*/
 *.spec
+!packaging/macos/DJI_Gyro_Fix.spec
 *.partial
 
 # Local videos and generated media

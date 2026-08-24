@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import queue
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -26,17 +27,32 @@ SMOOTHING_PRESETS: dict[str, float] = {
     "very_strong": 300.0,
 }
 PRESET_KEYS = tuple(SMOOTHING_PRESETS)
+IS_MACOS = sys.platform == "darwin"
+UI_LAYOUT_SCALE = 0.8 if IS_MACOS else 1.0
+UI_FONT_FAMILY = "Apple SD Gothic Neo" if IS_MACOS else "Malgun Gothic"
+UI_HINT_FONT_SIZE = 11 if IS_MACOS else 9
+UI_FIELD_FONT_SIZE = 10 if IS_MACOS else 9
+UI_BUTTON_FONT_SIZE = 12 if IS_MACOS else 10
+
+
+def _ui_px(value: int) -> int:
+    return round(value * UI_LAYOUT_SCALE)
+
+
+UI_WINDOW_GEOMETRY = f"{_ui_px(800)}x{_ui_px(900)}"
+UI_SUBTITLE_WRAP_LENGTH = _ui_px(730) if IS_MACOS else 0
 
 
 class GyroFixApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"DJI Gyro Fix v{__version__}")
-        self.geometry("800x900")
-        self.resizable(False, False)
+        self.geometry(UI_WINDOW_GEOMETRY)
+        if not IS_MACOS:
+            self.resizable(False, False)
         self.configure(bg="#11151c")
 
-        self.language: Language = "ko"
+        self.language: Language = "en"
         self._text_vars: dict[str, tk.StringVar] = {}
         self._preset_key = "strong"
         self._status_key: str | None = "initial_status"
@@ -56,11 +72,17 @@ class GyroFixApp(tk.Tk):
         self._cancel_event: threading.Event | None = None
         self._worker: threading.Thread | None = None
         self._busy = False
+        self._fixed_input_widgets: list[tk.Widget] = []
+        self._range_input_widgets: list[tk.Widget] = []
+        self._input_widget_states: list[tuple[tk.Widget, str]] = []
         self._last_detection: tuple[tuple[int, DetectionResult], ...] | None = None
         self.time_ranges: list[tuple[tk.StringVar, tk.StringVar]] = [self._new_time_range()]
 
         self._configure_style()
         self._build_ui()
+        if IS_MACOS:
+            self.update_idletasks()
+            self.resizable(False, False)
         self._apply_language()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.source_var.trace_add("write", self._input_changed)
@@ -157,20 +179,20 @@ class GyroFixApp(tk.Tk):
             lightcolor="#313946",
             darkcolor="#313946",
         )
-        style.configure("TLabel", background="#11151c", foreground="#edf1f7", font=("Malgun Gothic", 10))
-        style.configure("Card.TLabel", background="#1b212b", foreground="#edf1f7", font=("Malgun Gothic", 10))
-        style.configure("Title.TLabel", background="#11151c", foreground="#ffffff", font=("Malgun Gothic", 22, "bold"))
-        style.configure("Hint.TLabel", background="#11151c", foreground="#9ca6b5", font=("Malgun Gothic", 9))
-        style.configure("Section.TLabel", background="#1b212b", foreground="#ffffff", font=("Malgun Gothic", 12, "bold"))
-        style.configure("Field.TLabel", background="#1b212b", foreground="#c9d0dc", font=("Malgun Gothic", 9, "bold"))
-        style.configure("CardHint.TLabel", background="#1b212b", foreground="#98a3b3", font=("Malgun Gothic", 9))
-        style.configure("RangeNumber.TLabel", background="#1b212b", foreground="#aeb8c6", font=("Malgun Gothic", 10, "bold"), anchor="center")
-        style.configure("TButton", font=("Malgun Gothic", 10, "bold"), padding=(12, 9))
-        style.configure("Accent.TButton", background="#3d7ff2", foreground="#ffffff", font=("Malgun Gothic", 11, "bold"), padding=(16, 11))
+        style.configure("TLabel", background="#11151c", foreground="#edf1f7", font=(UI_FONT_FAMILY, 10))
+        style.configure("Card.TLabel", background="#1b212b", foreground="#edf1f7", font=(UI_FONT_FAMILY, 10))
+        style.configure("Title.TLabel", background="#11151c", foreground="#ffffff", font=(UI_FONT_FAMILY, 22, "bold"))
+        style.configure("Hint.TLabel", background="#11151c", foreground="#9ca6b5", font=(UI_FONT_FAMILY, UI_HINT_FONT_SIZE))
+        style.configure("Section.TLabel", background="#1b212b", foreground="#ffffff", font=(UI_FONT_FAMILY, 12, "bold"))
+        style.configure("Field.TLabel", background="#1b212b", foreground="#c9d0dc", font=(UI_FONT_FAMILY, UI_FIELD_FONT_SIZE, "bold"))
+        style.configure("CardHint.TLabel", background="#1b212b", foreground="#98a3b3", font=(UI_FONT_FAMILY, UI_FIELD_FONT_SIZE))
+        style.configure("RangeNumber.TLabel", background="#1b212b", foreground="#aeb8c6", font=(UI_FONT_FAMILY, 10, "bold"), anchor="center")
+        style.configure("TButton", font=(UI_FONT_FAMILY, UI_BUTTON_FONT_SIZE, "bold"), padding=(_ui_px(12), _ui_px(9)))
+        style.configure("Accent.TButton", background="#3d7ff2", foreground="#ffffff", font=(UI_FONT_FAMILY, 11, "bold"), padding=(_ui_px(16), _ui_px(11)))
         style.map("Accent.TButton", background=[("active", "#5893f5"), ("disabled", "#354157")])
-        style.configure("Detect.TButton", background="#303946", foreground="#ffffff", font=("Malgun Gothic", 11, "bold"), padding=(16, 11))
+        style.configure("Detect.TButton", background="#303946", foreground="#ffffff", font=(UI_FONT_FAMILY, 11, "bold"), padding=(_ui_px(16), _ui_px(11)))
         style.map("Detect.TButton", background=[("active", "#414c5c"), ("disabled", "#282f39")])
-        style.configure("Range.TButton", background="#29313d", foreground="#f2f5f9", font=("Malgun Gothic", 11, "bold"), padding=(4, 5))
+        style.configure("Range.TButton", background="#29313d", foreground="#f2f5f9", font=(UI_FONT_FAMILY, 11, "bold"), padding=(_ui_px(4), _ui_px(5)))
         style.map("Range.TButton", background=[("active", "#3a4656"), ("disabled", "#242a33")])
         style.configure(
             "LanguageInactive.TButton",
@@ -179,8 +201,8 @@ class GyroFixApp(tk.Tk):
             bordercolor="#344252",
             lightcolor="#344252",
             darkcolor="#344252",
-            font=("Malgun Gothic", 9, "bold"),
-            padding=(7, 5),
+            font=(UI_FONT_FAMILY, 9, "bold"),
+            padding=(_ui_px(7), _ui_px(5)),
         )
         style.map(
             "LanguageInactive.TButton",
@@ -194,15 +216,15 @@ class GyroFixApp(tk.Tk):
             bordercolor="#236c88",
             lightcolor="#236c88",
             darkcolor="#236c88",
-            font=("Malgun Gothic", 9, "bold"),
-            padding=(7, 5),
+            font=(UI_FONT_FAMILY, 9, "bold"),
+            padding=(_ui_px(7), _ui_px(5)),
         )
         style.map(
             "LanguageActive.TButton",
             background=[("active", "#1d6683")],
             foreground=[("active", "#ffffff")],
         )
-        style.configure("TEntry", fieldbackground="#11161e", foreground="#f4f6fa", insertcolor="#ffffff", bordercolor="#3a4352", lightcolor="#3a4352", darkcolor="#3a4352", padding=9)
+        style.configure("TEntry", fieldbackground="#11161e", foreground="#f4f6fa", insertcolor="#ffffff", bordercolor="#3a4352", lightcolor="#3a4352", darkcolor="#3a4352", padding=_ui_px(9))
         style.configure(
             "TCombobox",
             fieldbackground="#ffffff",
@@ -211,7 +233,7 @@ class GyroFixApp(tk.Tk):
             arrowcolor="#000000",
             selectbackground="#d9e7ff",
             selectforeground="#000000",
-            padding=7,
+            padding=_ui_px(7),
         )
         style.map(
             "TCombobox",
@@ -220,11 +242,11 @@ class GyroFixApp(tk.Tk):
             selectbackground=[("readonly", "#d9e7ff")],
             selectforeground=[("readonly", "#000000")],
         )
-        style.configure("Horizontal.TProgressbar", background="#3d7ff2", troughcolor="#11161e", bordercolor="#11161e", thickness=10)
+        style.configure("Horizontal.TProgressbar", background="#3d7ff2", troughcolor="#11161e", bordercolor="#11161e", thickness=_ui_px(10))
         style.configure("Vertical.TScrollbar", background="#394352", troughcolor="#161b23", arrowcolor="#cbd3df")
 
     def _build_ui(self) -> None:
-        root = ttk.Frame(self, padding=(24, 20))
+        root = ttk.Frame(self, padding=(_ui_px(24), _ui_px(20)))
         root.pack(fill="both", expand=True)
 
         title_row = ttk.Frame(root)
@@ -235,7 +257,7 @@ class GyroFixApp(tk.Tk):
             style="Title.TLabel",
         ).pack(side="left", anchor="w")
         language_group = ttk.Frame(title_row)
-        language_group.pack(side="left", anchor="w", padx=(12, 0), pady=(2, 0))
+        language_group.pack(side="left", anchor="w", padx=(_ui_px(12), 0), pady=(_ui_px(2), 0))
         self.korean_button = ttk.Button(
             language_group,
             text="KOR",
@@ -251,14 +273,15 @@ class GyroFixApp(tk.Tk):
             command=lambda: self._set_language("en"),
             width=5,
         )
-        self.english_button.pack(side="left", padx=(4, 0))
+        self.english_button.pack(side="left", padx=(_ui_px(4), 0))
         ttk.Label(
             root,
             textvariable=self._tv("subtitle"),
             style="Hint.TLabel",
-        ).pack(anchor="w", pady=(3, 16))
+            wraplength=UI_SUBTITLE_WRAP_LENGTH,
+        ).pack(anchor="w", pady=(_ui_px(3), _ui_px(16)))
 
-        file_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
+        file_card = ttk.Frame(root, style="Card.TFrame", padding=(_ui_px(16), _ui_px(14)))
         file_card.pack(fill="x")
         file_card.columnconfigure(0, weight=1)
         ttk.Label(
@@ -267,14 +290,17 @@ class GyroFixApp(tk.Tk):
             style="Section.TLabel",
         ).grid(row=0, column=0, sticky="w")
         file_row = ttk.Frame(file_card, style="Card.TFrame")
-        file_row.grid(row=1, column=0, sticky="ew", pady=(10, 10))
+        file_row.grid(row=1, column=0, sticky="ew", pady=(_ui_px(10), _ui_px(10)))
         file_row.columnconfigure(0, weight=1)
-        ttk.Entry(file_row, textvariable=self.source_var).grid(row=0, column=0, sticky="ew")
-        ttk.Button(
+        source_entry = ttk.Entry(file_row, textvariable=self.source_var)
+        source_entry.grid(row=0, column=0, sticky="ew")
+        file_button = ttk.Button(
             file_row,
             textvariable=self._tv("file_select"),
             command=self._choose_file,
-        ).grid(row=0, column=1, padx=(8, 0))
+        )
+        file_button.grid(row=0, column=1, padx=(_ui_px(8), 0))
+        self._fixed_input_widgets.extend((source_entry, file_button))
         ttk.Label(
             file_card,
             textvariable=self._tv("save_location"),
@@ -284,11 +310,11 @@ class GyroFixApp(tk.Tk):
             file_card,
             textvariable=self.output_var,
             style="CardHint.TLabel",
-            wraplength=700,
-        ).grid(row=3, column=0, sticky="w", pady=(4, 0))
+            wraplength=_ui_px(700),
+        ).grid(row=3, column=0, sticky="w", pady=(_ui_px(4), 0))
 
-        range_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
-        range_card.pack(fill="x", pady=(12, 0))
+        range_card = ttk.Frame(root, style="Card.TFrame", padding=(_ui_px(16), _ui_px(14)))
+        range_card.pack(fill="x", pady=(_ui_px(12), 0))
         range_card.columnconfigure(0, weight=1)
 
         settings_row = ttk.Frame(range_card, style="Card.TFrame")
@@ -298,10 +324,10 @@ class GyroFixApp(tk.Tk):
             row=0, column=0, sticky="w"
         )
         ttk.Label(settings_row, textvariable=self._tv("max_ranges"), style="CardHint.TLabel").grid(
-            row=0, column=1, sticky="e", padx=(8, 18)
+            row=0, column=1, sticky="e", padx=(_ui_px(8), _ui_px(18))
         )
         ttk.Label(settings_row, textvariable=self._tv("smoothing"), style="Field.TLabel").grid(
-            row=0, column=2, sticky="e", padx=(0, 8)
+            row=0, column=2, sticky="e", padx=(0, _ui_px(8))
         )
         self.preset_combo = ttk.Combobox(
             settings_row,
@@ -310,20 +336,21 @@ class GyroFixApp(tk.Tk):
             width=17,
         )
         self.preset_combo.grid(row=0, column=3, sticky="e")
+        self._fixed_input_widgets.append(self.preset_combo)
 
         ttk.Label(
             range_card,
             textvariable=self._tv("time_hint"),
             style="CardHint.TLabel",
-        ).grid(row=1, column=0, sticky="w", pady=(7, 12))
+        ).grid(row=1, column=0, sticky="w", pady=(_ui_px(7), _ui_px(12)))
 
         range_header = ttk.Frame(range_card, style="Card.TFrame")
-        range_header.grid(row=2, column=0, sticky="ew", pady=(0, 6), padx=(0, 17))
+        range_header.grid(row=2, column=0, sticky="ew", pady=(0, _ui_px(6)), padx=(0, _ui_px(17)))
         range_header.columnconfigure(1, weight=1)
         range_header.columnconfigure(2, weight=1)
         ttk.Label(range_header, textvariable=self._tv("number"), width=5, style="Field.TLabel").grid(row=0, column=0)
         ttk.Label(range_header, textvariable=self._tv("start_time"), style="Field.TLabel").grid(row=0, column=1, sticky="w")
-        ttk.Label(range_header, textvariable=self._tv("end_time"), style="Field.TLabel").grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Label(range_header, textvariable=self._tv("end_time"), style="Field.TLabel").grid(row=0, column=2, sticky="w", padx=(_ui_px(8), 0))
         ttk.Label(range_header, textvariable=self._tv("manage"), width=8, style="Field.TLabel").grid(row=0, column=3, columnspan=2)
 
         range_area = ttk.Frame(range_card, style="Card.TFrame")
@@ -331,7 +358,7 @@ class GyroFixApp(tk.Tk):
         range_area.columnconfigure(0, weight=1)
         self.time_canvas = tk.Canvas(
             range_area,
-            height=150,
+            height=_ui_px(150),
             background="#1b212b",
             highlightthickness=0,
             borderwidth=0,
@@ -341,7 +368,7 @@ class GyroFixApp(tk.Tk):
         )
         self.time_canvas.configure(yscrollcommand=self.range_scrollbar.set)
         self.time_canvas.grid(row=0, column=0, sticky="ew")
-        self.range_scrollbar.grid(row=0, column=1, sticky="ns", padx=(5, 0))
+        self.range_scrollbar.grid(row=0, column=1, sticky="ns", padx=(_ui_px(5), 0))
         self.range_scrollbar.grid_remove()
         self.time_rows_frame = ttk.Frame(self.time_canvas, style="Card.TFrame")
         self._time_rows_window = self.time_canvas.create_window(
@@ -351,13 +378,13 @@ class GyroFixApp(tk.Tk):
         self.time_canvas.bind("<Configure>", self._on_time_canvas_configure)
         self._render_time_ranges()
 
-        action_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
-        action_card.pack(fill="x", pady=(12, 0))
+        action_card = ttk.Frame(root, style="Card.TFrame", padding=(_ui_px(16), _ui_px(14)))
+        action_card.pack(fill="x", pady=(_ui_px(12), 0))
         action_card.columnconfigure(0, weight=1)
         ttk.Label(action_card, textvariable=self._tv("run"), style="Section.TLabel").grid(row=0, column=0, sticky="w")
 
         action_row = ttk.Frame(action_card, style="Card.TFrame")
-        action_row.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        action_row.grid(row=1, column=0, sticky="ew", pady=(_ui_px(10), 0))
         action_row.columnconfigure((0, 1), weight=1)
         self.detect_button = ttk.Button(
             action_row,
@@ -372,26 +399,26 @@ class GyroFixApp(tk.Tk):
             style="Accent.TButton",
             command=self._start,
         )
-        self.process_button.grid(row=0, column=1, sticky="ew", padx=(10, 0))
+        self.process_button.grid(row=0, column=1, sticky="ew", padx=(_ui_px(10), 0))
 
         self.progress_bar = ttk.Progressbar(action_card, variable=self.progress_var, maximum=100)
-        self.progress_bar.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        self.progress_bar.grid(row=2, column=0, sticky="ew", pady=(_ui_px(12), 0))
         ttk.Label(
             action_card,
             textvariable=self.status_var,
             style="CardHint.TLabel",
-            wraplength=700,
-        ).grid(row=3, column=0, sticky="w", pady=(7, 0))
+            wraplength=_ui_px(700),
+        ).grid(row=3, column=0, sticky="w", pady=(_ui_px(7), 0))
 
-        result_card = ttk.Frame(root, style="Card.TFrame", padding=(16, 14))
-        result_card.pack(fill="both", expand=True, pady=(12, 0))
+        result_card = ttk.Frame(root, style="Card.TFrame", padding=(_ui_px(16), _ui_px(14)))
+        result_card.pack(fill="both", expand=True, pady=(_ui_px(12), 0))
         ttk.Label(
             result_card,
             textvariable=self._tv("detection_results"),
             style="Section.TLabel",
         ).pack(anchor="w")
         result_body = ttk.Frame(result_card, style="Card.TFrame")
-        result_body.pack(fill="both", expand=True, pady=(10, 0))
+        result_body.pack(fill="both", expand=True, pady=(_ui_px(10), 0))
         result_body.columnconfigure(0, weight=1)
         result_body.rowconfigure(0, weight=1)
         self.result_text = tk.Text(
@@ -404,14 +431,14 @@ class GyroFixApp(tk.Tk):
             foreground="#dfe5ee",
             insertbackground="#ffffff",
             selectbackground="#315f9f",
-            font=("Malgun Gothic", 9),
-            padx=12,
-            pady=10,
+            font=(UI_FONT_FAMILY, 9),
+            padx=_ui_px(12),
+            pady=_ui_px(10),
         )
         result_scrollbar = ttk.Scrollbar(result_body, orient="vertical", command=self.result_text.yview)
         self.result_text.configure(yscrollcommand=result_scrollbar.set)
         self.result_text.grid(row=0, column=0, sticky="nsew")
-        result_scrollbar.grid(row=0, column=1, sticky="ns", padx=(6, 0))
+        result_scrollbar.grid(row=0, column=1, sticky="ns", padx=(_ui_px(6), 0))
 
     def _new_time_range(self) -> tuple[tk.StringVar, tk.StringVar]:
         start_var = tk.StringVar(value="")
@@ -423,37 +450,52 @@ class GyroFixApp(tk.Tk):
     def _render_time_ranges(self) -> None:
         for child in self.time_rows_frame.winfo_children():
             child.destroy()
+        self._range_input_widgets = []
 
         count = len(self.time_ranges)
         for index, (start_var, end_var) in enumerate(self.time_ranges):
             row = ttk.Frame(self.time_rows_frame, style="Card.TFrame")
-            row.grid(row=index, column=0, sticky="ew", pady=(0, 6))
+            row.grid(row=index, column=0, sticky="ew", pady=(0, _ui_px(6)))
             row.columnconfigure(1, weight=1)
             row.columnconfigure(2, weight=1)
 
-            ttk.Label(row, text=f"{index + 1}", width=5, style="RangeNumber.TLabel").grid(
-                row=0, column=0
+            ttk.Label(
+                row,
+                text=f"{index + 1}",
+                width=5,
+                anchor="center",
+                justify="center",
+                style="RangeNumber.TLabel",
+            ).grid(
+                row=0, column=0, sticky="nsew"
             )
-            ttk.Entry(row, textvariable=start_var).grid(row=0, column=1, sticky="ew")
-            ttk.Entry(row, textvariable=end_var).grid(
-                row=0, column=2, sticky="ew", padx=(8, 0)
+            start_entry = ttk.Entry(row, textvariable=start_var)
+            start_entry.grid(row=0, column=1, sticky="ew")
+            end_entry = ttk.Entry(row, textvariable=end_var)
+            end_entry.grid(
+                row=0, column=2, sticky="ew", padx=(_ui_px(8), 0)
             )
-            ttk.Button(
+            add_button = ttk.Button(
                 row,
                 text="+",
                 width=3,
                 style="Range.TButton",
                 command=self._add_time_range,
                 state="disabled" if count >= 10 else "normal",
-            ).grid(row=0, column=3, padx=(8, 3))
-            ttk.Button(
+            )
+            add_button.grid(row=0, column=3, padx=(_ui_px(8), _ui_px(3)))
+            remove_button = ttk.Button(
                 row,
                 text="−",
                 width=3,
                 style="Range.TButton",
                 command=lambda position=index: self._remove_time_range(position),
                 state="disabled" if count <= 1 else "normal",
-            ).grid(row=0, column=4)
+            )
+            remove_button.grid(row=0, column=4)
+            self._range_input_widgets.extend(
+                (start_entry, end_entry, add_button, remove_button)
+            )
 
         self.time_rows_frame.columnconfigure(0, weight=1)
         self.after_idle(self._update_time_scrollbar)
@@ -466,8 +508,8 @@ class GyroFixApp(tk.Tk):
         self.after_idle(self._update_time_scrollbar)
 
     def _update_time_scrollbar(self) -> None:
-        content_height = max(40, self.time_rows_frame.winfo_reqheight())
-        viewport_height = min(150, content_height)
+        content_height = max(_ui_px(40), self.time_rows_frame.winfo_reqheight())
+        viewport_height = min(_ui_px(150), content_height)
         if int(float(self.time_canvas.cget("height"))) != viewport_height:
             self.time_canvas.configure(height=viewport_height)
 
@@ -532,6 +574,20 @@ class GyroFixApp(tk.Tk):
             self._set_status("file_selected_status")
 
     def _set_busy(self, busy: bool) -> None:
+        if busy and not self._busy:
+            input_widgets = self._fixed_input_widgets + self._range_input_widgets
+            self._input_widget_states = [
+                (widget, str(widget.cget("state")))
+                for widget in input_widgets
+                if widget.winfo_exists()
+            ]
+            for widget, _state in self._input_widget_states:
+                widget.configure(state="disabled")
+        elif not busy and self._busy:
+            for widget, state in self._input_widget_states:
+                if widget.winfo_exists():
+                    widget.configure(state=state)
+            self._input_widget_states = []
         self._busy = busy
         self.detect_button.configure(state="disabled" if busy else "normal")
         self.process_button.configure(state="disabled" if busy else "normal")
