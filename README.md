@@ -1,149 +1,171 @@
 # DJI Gyro Fix v0.92
 
-DJI 카메라 원본 MP4/MOV에 포함된 자세(쿼터니언) 메타데이터를 지정 구간에서
-스무딩하는 오프라인 Windows 도구입니다. 영상과 음성을 재인코딩하지 않고 원본은
-그대로 둔 채 `_gyro_fixed`가 붙은 수정본을 만듭니다.
+DJI Gyro Fix is an offline desktop tool for Windows and macOS that smooths
+attitude (quaternion) metadata in selected time ranges of original DJI MP4/MOV
+files. It does not re-encode video or audio. The original file is preserved and
+the repaired copy is saved with `_gyro_fixed` appended to its name.
 
-> 이 프로젝트는 베타 소프트웨어입니다. 중요한 촬영본은 별도로 백업하고 카메라
-> 원본의 복사본으로 먼저 검증하세요.
+> This project is beta software. Keep a separate backup of important footage
+> and test it on a copy of the original camera file first.
 
-## Windows 다운로드
+## Downloads
 
-- [DJI Gyro Fix v0.91 EXE 받기](https://github.com/kim2160/DJIGyroFix/releases/download/v0.91/DJI_Gyro_Fix.exe)
-- [모든 릴리스와 변경 내용 보기](https://github.com/kim2160/DJIGyroFix/releases)
+### macOS
 
-실행 파일은 아직 코드 서명되지 않아 Windows SmartScreen 경고가 표시될 수
-있습니다. 릴리스 설명의 SHA-256과 다운로드한 파일의 검사값을 비교할 수
-있습니다.
+- [DJI Gyro Fix v0.92 for macOS (Apple Silicon and Intel)](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/DJI_Gyro_Fix_v0.92_macOS_universal2.zip)
+- [SHA-256 checksums](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/SHA256SUMS.txt)
 
-## 주요 기능
+The macOS app is signed with an Apple Developer ID and notarized by Apple.
 
-- 인터넷, AI 서비스, Gyroflow 설치 없이 로컬에서 실행
-- 영문 기본 UI와 제목 옆 `KOR`/`ENG` 언어 선택 버튼
-- 최대 10개의 시작~종료 구간을 한 번에 처리
-- 완전히 빈 시간 행 무시 및 겹치는 구간 자동 병합
-- 선택 구간의 이상 고주파 자세 흔들림 검출
-- `약하게`, `보통`, `강하게`, `매우 강하게` 스무딩 단계
-- 영상·음성 트랙을 재인코딩하지 않고 DJI 쿼터니언 필드만 수정
-- 고유 임시 파일과 원자적 교체를 사용해 불완전한 결과 노출 방지
+### Windows
 
-## 안전하게 처리하는 방식
+- [DJI Gyro Fix v0.91 for Windows](https://github.com/kim2160/DJIGyroFix/releases/download/v0.91/DJI_Gyro_Fix.exe)
+- [View all releases and release notes](https://github.com/kim2160/DJIGyroFix/releases)
 
-프로그램은 원본 전체를 별도 임시 파일로 복사한 후, 선택한 시간 구간에 해당하는
-`djmd` 샘플의 쿼터니언 float 필드만 같은 바이트 위치에 기록합니다. 파일 크기와
-MP4 트랙 배치는 유지되며, 저장이 끝난 파일만 최종 출력 이름으로 교체됩니다.
+The Windows executable is not currently code-signed, so Windows SmartScreen
+may display a warning. You can compare the downloaded file with the SHA-256
+checksum published in the release notes.
 
-따라서 원본 크기 이상의 여유 공간이 필요합니다. 처리 중에는 안전한 저장이 끝날
-때까지 앱을 종료할 수 없습니다.
+## Features
 
-## 사용 방법
+- Runs fully offline without an internet connection, AI service, or Gyroflow
+- English UI by default, with `KOR` and `ENG` language buttons beside the title
+- Processes up to 10 start/end time ranges in one operation
+- Ignores completely blank time rows and automatically merges overlapping ranges
+- Detects abnormal high-frequency attitude jitter in selected ranges
+- Provides Weak, Medium, Strong, and Very Strong smoothing presets
+- Modifies only DJI quaternion fields without re-encoding video or audio tracks
+- Uses unique temporary files and atomic replacement to avoid incomplete outputs
 
-1. GitHub Releases에서 Windows 실행 파일을 내려받아 `DJI_Gyro_Fix.exe`를 실행합니다.
-2. 제목 오른쪽의 `KOR` 또는 `ENG` 버튼으로 화면 언어를 선택합니다.
-3. `파일 선택`에서 DJI 카메라 원본 MP4/MOV를 선택합니다.
-4. 시작 시간과 종료 시간을 입력합니다.
-5. 필요한 경우 `+`로 구간을 추가합니다. 최대 10개까지 입력할 수 있습니다.
-6. `검출`로 흔들림 위치를 확인하거나 바로 `FIX`를 실행합니다.
-7. 원본 폴더의 `원본이름_gyro_fixed.MP4`를 확인합니다.
+## How it protects the original file
 
-지원 시간 형식:
+The app first copies the complete original file to a separate temporary file.
+It then writes only the quaternion float fields of the relevant `djmd` samples
+at their original byte positions. File size and MP4 track layout remain
+unchanged, and only a fully written file is moved to the final output path.
+
+You need at least as much free disk space as the original file. The app cannot
+be closed during processing until the output has been saved safely.
+
+## Usage
+
+1. Download the package for your operating system from GitHub Releases.
+2. On macOS, extract the ZIP and open `DJI Gyro Fix.app`. On Windows, run
+   `DJI_Gyro_Fix.exe`.
+3. Use the `KOR` or `ENG` button beside the title if you want to change the UI
+   language.
+4. Click `Browse` and select an original DJI MP4/MOV camera file.
+5. Enter the start and end time of the range to process.
+6. Add more ranges with `+` if needed. Up to 10 ranges can be entered.
+7. Click `DETECT` to inspect possible jitter, or click `FIX` to process the
+   selected ranges immediately.
+8. Find the repaired file named `original_name_gyro_fixed.MP4` beside the
+   original.
+
+Supported time formats:
 
 - `22`
 - `22.5`
 - `00:00:22.500`
 - `1:02.5`
 
-시작과 종료가 모두 비어 있는 추가 행은 자동으로 건너뜁니다. 둘 중 하나만 입력된
-행은 오류로 안내합니다.
+Additional rows with both start and end fields blank are skipped. A row with
+only one field filled is reported as an error.
 
-## 떨림 검출
+## Jitter detection
 
-검출기는 쿼터니언에서 회전 속도를 계산하고 약 10ms 단위의 고주파 잔차를 선택
-구간의 평상시 수준과 비교합니다. 가까운 급변 지점은 하나의 사건으로 묶어 다음을
-표시합니다.
+The detector calculates angular velocity from quaternion samples and compares
+high-frequency residuals at roughly 10 ms intervals with the normal level of
+the selected range. Nearby spikes are grouped into a single event. Each event
+reports:
 
-- 검출 시작·종료 및 최대 지점
-- `0~10` 강도와 `약함/중간/강함` 등급
-- 주요 X/Y/Z 회전 축
-- 평상시 대비 크기와 급변 지점 수
+- Start, end, and peak time
+- A `0–10` strength score and Weak/Medium/Strong severity
+- The primary X/Y/Z rotation axis
+- Magnitude relative to the baseline and the number of rapid changes
 
-검출은 참고 기능입니다. `FIX`는 검출 여부와 관계없이 사용자가 입력한 유효 구간
-전체에 적용됩니다.
+Detection is an advisory feature. `FIX` processes every valid user-entered
+range whether or not jitter was detected.
 
-## 지원 범위와 제한
+## Supported files and limitations
 
-현재 다음 DJI protobuf 쿼터니언 구조를 지원합니다.
+The following DJI protobuf quaternion structures are currently supported:
 
 - `wm169`
 - `wa530`
 - `oq101`
 
-다음 파일은 지원하지 않습니다.
+The following files are not supported:
 
-- `djmd` 자세 메타데이터가 없는 편집본
-- 조각화된 MP4 등 현재 파서가 지원하지 않는 컨테이너 구조
-- 암호화되거나 알려지지 않은 DJI 메타데이터
-- DJI 이외 제조사의 영상
+- Edited files without `djmd` attitude metadata
+- Fragmented MP4 files and other container layouts not supported by the parser
+- Encrypted or unknown DJI metadata variants
+- Files produced by manufacturers other than DJI
 
-지원 여부는 확장자가 아니라 실제 MP4 트랙과 메타데이터 구조로 판단합니다.
+Support is determined from the actual MP4 tracks and metadata, not only from
+the filename extension.
 
-## 개발 실행
+## Development
 
-요구 사항:
+Requirements:
 
-- Python 3.12 이상
-- 런타임 외부 패키지 없음
-- 데스크톱 UI는 Windows에서 검증
+- Python 3.12 or later
+- No external runtime dependencies
+- Desktop UI validated on Windows and macOS
 
-```powershell
+Run the desktop app:
+
+```text
 python app.py
 ```
 
-명령줄에서 단일 구간을 처리할 수도 있습니다.
+Process a single range from the command line:
 
-```powershell
+```text
 python -m gyrofix.cli "video.MP4" 22 24
 ```
 
-## 테스트
+## Tests
 
-```powershell
+```text
 python -m compileall -q app.py gyrofix tests tools
 python -m unittest discover -s tests -v
 ```
 
-테스트는 시간 입력, 빈 행, 구간 병합, protobuf 필드 기록, 쿼터니언 스무딩,
-흔들림 사건 병합, MP4 테이블 검증, 원자적 출력과 실패 시 임시 파일 정리를
-포함합니다.
+The test suite covers time parsing, optional rows, interval merging, protobuf
+field writes, quaternion smoothing, jitter event grouping, MP4 table
+validation, atomic output, and temporary-file cleanup after failures.
 
-## Windows EXE 빌드
+## Windows executable build
 
 ```powershell
 .\build_exe.bat
 ```
 
-빌드 결과는 `dist/DJI_Gyro_Fix.exe`에 생성됩니다. `dist/`는 소스 저장소에서
-제외되며, 공개 바이너리는 GitHub Releases 또는 제공된 수동 빌드 워크플로의
-artifact로 배포하는 방식을 권장합니다.
+The output is created at `dist/DJI_Gyro_Fix.exe`. The `dist/` directory is
+excluded from the source repository. Public binaries should be distributed
+through GitHub Releases or the provided manual build workflow artifacts.
 
-## 프로젝트 구조
+## Project structure
 
 ```text
-gyrofix/             핵심 MP4·protobuf·검출·스무딩·UI 코드
-tests/               회귀 테스트
-tools/               샘플 검사 및 출력 바이트 검증 도구
-docs/                배포용 한국어 사용 설명
-packaging/           Windows 실행 파일 버전 정보
-.github/workflows/   테스트 및 Windows 수동 빌드
+gyrofix/             Core MP4, protobuf, detection, smoothing, and UI code
+tests/               Regression tests
+tools/               Sample inspection and output byte-verification tools
+docs/                End-user documentation
+packaging/           Windows and macOS packaging metadata and assets
+.github/workflows/   Cross-platform tests and manual Windows builds
 ```
 
-기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md), 참고한 외부 프로젝트 정보는
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 확인하세요.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for information about related
+open-source work.
 
-## 라이선스
+## License
 
 Copyright (C) 2026 dronefriends.kr
 
-이 프로젝트는 [GNU General Public License v3.0 only](LICENSE)에 따라 배포됩니다.
-프로그램을 수정하여 배포할 경우 해당 수정본도 GPL v3.0으로 배포하고 대응하는
-소스 코드를 함께 제공해야 합니다. 자세한 조건은 `LICENSE`를 확인하세요.
+This project is distributed under the
+[GNU General Public License v3.0 only](LICENSE). If you distribute a modified
+version of the program, you must also distribute the corresponding source code
+under GPL v3.0. See `LICENSE` for the full terms.
