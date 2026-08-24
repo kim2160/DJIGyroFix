@@ -10,7 +10,8 @@ DIST_DIR="$PROJECT_ROOT/dist-macos"
 BUILD_DIR="$PROJECT_ROOT/build-macos"
 RELEASE_DIR="$DIST_DIR/release"
 APP_PATH="$DIST_DIR/DJI Gyro Fix.app"
-ARCHIVE_PATH="$RELEASE_DIR/DJI_Gyro_Fix_v${APP_VERSION}_macOS_${TARGET_ARCH}.zip"
+DMG_PATH="$RELEASE_DIR/DJI_Gyro_Fix_v${APP_VERSION}_macOS_${TARGET_ARCH}.dmg"
+LEGACY_ARCHIVE_PATH="$RELEASE_DIR/DJI_Gyro_Fix_v${APP_VERSION}_macOS_${TARGET_ARCH}.zip"
 PYINSTALLER_CONFIG_DIR="${PYINSTALLER_CONFIG_DIR:-${TMPDIR:-/tmp}/djigyrofix-pyinstaller}"
 CODESIGN_IDENTITY="${DJI_GYRO_FIX_CODESIGN_IDENTITY:-}"
 NOTARY_PROFILE="${DJI_GYRO_FIX_NOTARY_PROFILE:-djigyrofix-notary}"
@@ -89,25 +90,42 @@ if ! grep -Fq "Timestamp=" <<<"$SIGNATURE_DETAILS"; then
 fi
 
 mkdir -p "$RELEASE_DIR"
-rm -f "$ARCHIVE_PATH" "$RELEASE_DIR/SHA256SUMS.txt"
-ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ARCHIVE_PATH"
-xcrun notarytool submit "$ARCHIVE_PATH" \
+rm -f "$DMG_PATH" "$LEGACY_ARCHIVE_PATH" "$RELEASE_DIR/SHA256SUMS.txt"
+DMG_STAGE_DIR="$(mktemp -d "$BUILD_DIR/dmg-stage.XXXXXX")"
+cleanup() {
+  rm -rf "$DMG_STAGE_DIR"
+}
+trap cleanup EXIT
+
+ditto "$APP_PATH" "$DMG_STAGE_DIR/DJI Gyro Fix.app"
+ln -s /Applications "$DMG_STAGE_DIR/Applications"
+hdiutil create \
+  -volname "DJI Gyro Fix" \
+  -srcfolder "$DMG_STAGE_DIR" \
+  -ov \
+  -format UDZO \
+  "$DMG_PATH"
+
+# Sign and notarize the distributed container as well as the app it contains.
+codesign --force --sign "$CODESIGN_IDENTITY" --timestamp "$DMG_PATH"
+codesign --verify --verbose=2 "$DMG_PATH"
+xcrun notarytool submit "$DMG_PATH" \
   --keychain-profile "$NOTARY_PROFILE" \
   --wait
-xcrun stapler staple "$APP_PATH"
-xcrun stapler validate "$APP_PATH"
-codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-spctl --assess --type execute --verbose=4 "$APP_PATH"
-
-# Recreate the upload archive so the distributed app includes the stapled ticket.
-rm -f "$ARCHIVE_PATH"
-ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ARCHIVE_PATH"
+xcrun stapler staple "$DMG_PATH"
+xcrun stapler validate "$DMG_PATH"
+hdiutil verify "$DMG_PATH"
+spctl --assess \
+  --type open \
+  --context context:primary-signature \
+  --verbose=4 \
+  "$DMG_PATH"
 
 (
   cd "$RELEASE_DIR"
-  shasum -a 256 "$(basename "$ARCHIVE_PATH")" > SHA256SUMS.txt
+  shasum -a 256 "$(basename "$DMG_PATH")" > SHA256SUMS.txt
 )
 
 echo "Built app: $APP_PATH"
-echo "Release archive: $ARCHIVE_PATH"
+echo "Release disk image: $DMG_PATH"
 echo "Checksum: $RELEASE_DIR/SHA256SUMS.txt"

@@ -8,7 +8,7 @@ re-encode video or audio, and it never modifies the original file.
 
 ## Downloads
 
-- [macOS v0.92 — Apple Silicon and Intel](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/DJI_Gyro_Fix_v0.92_macOS_universal2.zip)
+- [macOS v0.92 — Apple Silicon and Intel](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/DJI_Gyro_Fix_v0.92_macOS_universal2.dmg)
 - [Windows v0.91](https://github.com/kim2160/DJIGyroFix/releases/download/v0.91/DJI_Gyro_Fix.exe)
 - [All releases and checksums](https://github.com/kim2160/DJIGyroFix/releases)
 
@@ -40,7 +40,8 @@ alter the image or audio tracks.
 
 ## Usage
 
-1. Open `DJI Gyro Fix.app` on macOS or `DJI_Gyro_Fix.exe` on Windows.
+1. On macOS, open the DMG and drag `DJI Gyro Fix` to `Applications`. On
+   Windows, open `DJI_Gyro_Fix.exe`.
 2. Click `Browse` and select an original DJI MP4/MOV camera file.
 3. Enter the start and end time of the affected range.
 4. Add more ranges with `+` if needed.
