@@ -1,4 +1,4 @@
-DJI Gyro Fix v0.93 사용 방법
+DJI Gyro Fix v0.92 사용 방법
 ===========================
 
 1. DJI_Gyro_Fix.exe를 실행합니다.

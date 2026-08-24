@@ -52,7 +52,7 @@ class GyroFixApp(tk.Tk):
             self.resizable(False, False)
         self.configure(bg="#11151c")
 
-        self.language: Language = "ko"
+        self.language: Language = "en" if IS_MACOS else "ko"
         self._text_vars: dict[str, tk.StringVar] = {}
         self._preset_key = "strong"
         self._status_key: str | None = "initial_status"

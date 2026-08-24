@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dji-gyro-fix"
-version = "0.93"
+version = "0.92"
 description = "Offline repair of selected DJI quaternion metadata intervals without video re-encoding"
 readme = "README.md"
 requires-python = ">=3.12"

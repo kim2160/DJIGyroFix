@@ -1,4 +1,4 @@
-# DJI Gyro Fix v0.93
+# DJI Gyro Fix v0.92
 
 DJI Gyro Fix is an offline desktop tool that smooths attitude (quaternion)
 metadata in selected time ranges of original DJI MP4/MOV files. It does not
@@ -9,7 +9,7 @@ re-encode video or audio, and it never modifies the original file.
 ## Downloads
 
 - [macOS v0.92 — Apple Silicon and Intel](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/DJI_Gyro_Fix_v0.92_macOS_universal2.dmg)
-- [Windows v0.93](https://github.com/kim2160/DJIGyroFix/releases/download/v0.93/DJI_Gyro_Fix.exe)
+- [Windows v0.92](https://github.com/kim2160/DJIGyroFix/releases/download/v0.92/DJI_Gyro_Fix.exe)
 - [All releases and checksums](https://github.com/kim2160/DJIGyroFix/releases)
 
 The macOS app is signed with an Apple Developer ID and notarized by Apple. The
