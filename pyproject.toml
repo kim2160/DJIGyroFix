@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dji-gyro-fix"
-version = "0.92"
+version = "0.93"
 description = "Offline repair of selected DJI quaternion metadata intervals without video re-encoding"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -12,9 +12,11 @@ dependencies = []
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Win32 (MS Windows)",
+  "Environment :: MacOS X",
   "Intended Audience :: End Users/Desktop",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS :: MacOS X",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Topic :: Multimedia :: Video",

@@ -31,5 +31,5 @@ jobs:
           Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  DJI_Gyro_Fix.exe" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
-          name: DJI_Gyro_Fix_v0.92_Windows
+          name: DJI_Gyro_Fix_v0.93_Windows
           path: dist/
